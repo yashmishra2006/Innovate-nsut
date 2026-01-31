@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
+import { generateImageWithDetails, analyzeImage } from '../services/geminiService';
 
 const StreetTool: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showResult, setShowResult] = useState(true);
+  const [showResult, setShowResult] = useState(false);
+  const [beforeImage, setBeforeImage] = useState<string>('https://lh3.googleusercontent.com/aida-public/AB6AXuD2b85fZA5ZhSV6ALnmH30gWhXPINZbMos-K8l5CDdeWBVzy-Cen78tC8z0bldCnYH56qHqYRb2LpS054_J_1g2tf5VVmgsFBR_v3qHrftKh8Yp_2W1ZAwJeklFJV3VSNIK6MuigHWnd0ZRTRDA4HR6BdryKYeXPKLFfvKBKDXsNcoWxNpMBymVNu_Kh114iJOmuDDREOelF4Z_0UGUM0JLUOcC6g-vL-m5x2u8lVtvF0_7EpJxPbLzy3TbACE0n9R66E6f-sVxMg');
+  const [afterImage, setAfterImage] = useState<string>('https://lh3.googleusercontent.com/aida-public/AB6AXuCHMrif_FZz6MFxzgYOs8DkUKUMy1kgjRQlm0dsWSV2e3KvCAUsz8bwUcLu3V1swB9_heMVTDwKKosK57c4CdW-b9hO3CAQQ7N4AKl5GxC-d0baLGi--UG91c-w2zt6qfjZxsFhuyWgaopmRJCYHs0sRM7i0pyiYNK-SCJbfwSUa7JVoE64VQsX3KpJ8ssuwg62YOxCLtBlHYN-u1okLrP9vomNTnLpdg3QA4scmcKd-ibGfMELIKDv2XzlxpRFEDgbueLBqX9J7A');
+  const [analysis, setAnalysis] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Mock Toggles state
   const [toggles, setToggles] = useState({
@@ -20,12 +26,89 @@ const StreetTool: React.FC = () => {
       setToggles(prev => ({ ...prev, [key]: !(prev as any)[key] }));
   };
 
-  const handleGenerate = () => {
+  const buildPrompt = (): string => {
+    const interventions: string[] = [];
+    if (toggles.trees) interventions.push("add lush green trees throughout");
+    if (toggles.shade) interventions.push("add shade canopy structures");
+    if (toggles.greenBelt) interventions.push("add green belt landscaping");
+    if (toggles.cycleLane) interventions.push("paint and add a dedicated cycle lane");
+    if (toggles.vegetation) interventions.push("add dense vegetation and plants");
+    if (toggles.gardens) interventions.push("add vertical gardens on buildings");
+    
+    const basePrompt = interventions.length > 0 
+      ? `Transform this street scene to be more sustainable and green by: ${interventions.join(", ")}. Make it look professional and photorealistic.`
+      : "Make this street more green and sustainable with trees, vegetation, and green spaces. Make it look professional and photorealistic.";
+    
+    return basePrompt;
+  };
+
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  const generateTransformation = async (file: File) => {
+    try {
+      setError('');
       setIsGenerating(true);
-      setTimeout(() => {
-          setIsGenerating(false);
-          setShowResult(true);
-      }, 2000);
+
+      // Generate the after image using API
+      const prompt = buildPrompt();
+      const response = await generateImageWithDetails(file, prompt);
+
+      if (response.success) {
+        // Fetch the generated image to display it
+        const imageBlob = await fetch(`http://34.131.185.69:8000/download/${response.generated_image_filename}`)
+          .then(res => res.blob());
+        
+        const imageUrl = URL.createObjectURL(imageBlob);
+        setAfterImage(imageUrl);
+        setAnalysis(response.analysis);
+        setShowResult(true);
+      } else {
+        setError(`Generation failed: ${response.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate image. Make sure the API is accessible.');
+      console.error('Error generating image:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadedFile(file);
+      
+      // Read the before image for preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setBeforeImage(result);
+      };
+      reader.readAsDataURL(file);
+
+      // Generate the transformation
+      await generateTransformation(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process image.');
+      console.error('Error processing file:', err);
+    }
+  };
+
+  const handleGenerate = () => {
+    // Only regenerate if a file is already uploaded
+    if (!uploadedFile) {
+      setError('Please upload an image first using the "Upload New" button.');
+      return;
+    }
+    
+    // Regenerate with current toggles
+    generateTransformation(uploadedFile);
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -38,6 +121,26 @@ const StreetTool: React.FC = () => {
            <p className="text-gray-500 dark:text-text-muted max-w-2xl font-body">Visualize urban sustainability improvements instantly. Upload a street photo and apply green interventions to see the potential impact.</p>
         </div>
 
+        {error && (
+          <div className="w-full max-w-[1200px] bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3">
+            <span className="material-symbols-outlined text-red-600 dark:text-red-400">error</span>
+            <span className="text-red-700 dark:text-red-300">{error}</span>
+          </div>
+        )}
+
+        {isGenerating && (
+          <div className="w-full max-w-[1200px] bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 animate-spin">autorenew</span>
+              <span className="font-bold text-blue-900 dark:text-blue-300">Processing your image with AI...</span>
+            </div>
+            <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 overflow-hidden">
+              <div className="bg-primary h-full rounded-full animate-pulse" style={{ width: '75%' }}></div>
+            </div>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">This usually takes 30-45 seconds</p>
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row w-full max-w-[1200px] gap-6 items-start">
            {/* Visualizer */}
            <div className="flex-1 w-full flex flex-col gap-4">
@@ -49,8 +152,8 @@ const StreetTool: React.FC = () => {
                     </div>
                  )}
                  <BeforeAfterSlider 
-                    beforeImage="https://lh3.googleusercontent.com/aida-public/AB6AXuD2b85fZA5ZhSV6ALnmH30gWhXPINZbMos-K8l5CDdeWBVzy-Cen78tC8z0bldCnYH56qHqYRb2LpS054_J_1g2tf5VVmgsFBR_v3qHrftKh8Yp_2W1ZAwJeklFJV3VSNIK6MuigHWnd0ZRTRDA4HR6BdryKYeXPKLFfvKBKDXsNcoWxNpMBymVNu_Kh114iJOmuDDREOelF4Z_0UGUM0JLUOcC6g-vL-m5x2u8lVtvF0_7EpJxPbLzy3TbACE0n9R66E6f-sVxMg"
-                    afterImage="https://lh3.googleusercontent.com/aida-public/AB6AXuCHMrif_FZz6MFxzgYOs8DkUKUMy1kgjRQlm0dsWSV2e3KvCAUsz8bwUcLu3V1swB9_heMVTDwKKosK57c4CdW-b9hO3CAQQ7N4AKl5GxC-d0baLGi--UG91c-w2zt6qfjZxsFhuyWgaopmRJCYHs0sRM7i0pyiYNK-SCJbfwSUa7JVoE64VQsX3KpJ8ssuwg62YOxCLtBlHYN-u1okLrP9vomNTnLpdg3QA4scmcKd-ibGfMELIKDv2XzlxpRFEDgbueLBqX9J7A"
+                    beforeImage={beforeImage}
+                    afterImage={afterImage}
                     labelBefore="Before"
                     labelAfter="After"
                  />
@@ -61,8 +164,31 @@ const StreetTool: React.FC = () => {
                     <span className="material-symbols-outlined text-gray-400 dark:text-text-muted">add_photo_alternate</span>
                     <span className="text-sm text-gray-600 dark:text-text-muted">Want to try another street?</span>
                  </div>
-                 <button className="text-sm font-bold text-primary hover:text-primary/80">Upload New</button>
+                 <button 
+                   onClick={handleUploadClick}
+                   className="text-sm font-bold text-primary hover:text-primary/80">
+                   Upload New
+                 </button>
               </div>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              {analysis && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h3 className="font-bold text-text-main mb-2 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">info</span>
+                    AI Analysis
+                  </h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{analysis}</p>
+                </div>
+              )}
            </div>
 
            {/* Controls */}
