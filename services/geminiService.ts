@@ -25,6 +25,103 @@ export interface AnalyzeImageResponse {
   error?: string;
 }
 
+export interface GreenCorridorSuggestion {
+  success: boolean;
+  corridorPath: [number, number][];
+  corridorType: string;
+  reasoning: string;
+  features: string[];
+  error?: string;
+}
+
+/**
+ * Analyze region and suggest optimal green corridor placement
+ */
+export async function analyzeRegionForGreenCorridor(
+  centerLat: number,
+  centerLng: number,
+  activeLayers: string[],
+  regionData: any
+): Promise<GreenCorridorSuggestion> {
+  try {
+    if (!API_KEY) {
+      throw new Error("Gemini API Key is not configured");
+    }
+
+    const model = genAI.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{
+        text: `You are an expert urban planner and sustainability consultant. Analyze the following region and suggest an optimal green corridor/belt placement.
+
+Region Information:
+- Center Coordinates: ${centerLat}, ${centerLng}
+- Active Environmental Layers: ${activeLayers.join(', ')}
+- Heat Score: ${regionData.heatScore}/100 (higher = more heat stress)
+- Current Green Coverage: ${regionData.greenScore}%
+- Trees in area: ${regionData.stats.trees}
+- EV Stations: ${regionData.stats.ev}
+- Solar Installations: ${regionData.stats.solar}
+- Area Size: ${regionData.stats.area} km²
+
+Task: Design an optimal green corridor for this region. The corridor should:
+1. Connect existing green spaces
+2. Provide shade and cooling
+3. Support pedestrian/cycling infrastructure
+4. Consider existing infrastructure
+
+Please respond in the following JSON format ONLY (no markdown, no explanation outside JSON):
+{
+  "corridorType": "linear|circular|branching|network",
+  "pathPoints": [
+    {"lat": ${centerLat + 0.003}, "lng": ${centerLng - 0.003}},
+    {"lat": ${centerLat}, "lng": ${centerLng}},
+    {"lat": ${centerLat - 0.003}, "lng": ${centerLng + 0.003}}
+  ],
+  "reasoning": "brief explanation of why this configuration",
+  "features": ["list", "of", "recommended", "features"]
+}`
+      }]
+    });
+
+    const response = await model;
+    let text = '';
+    for (const part of response.candidates[0].content.parts) {
+      if (part.text) {
+        text += part.text;
+      }
+    }
+
+    // Extract JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Failed to parse Gemini response");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    
+    // Convert parsed response to corridor path
+    const corridorPath: [number, number][] = parsed.pathPoints.map((p: any) => [p.lat, p.lng]);
+
+    return {
+      success: true,
+      corridorPath,
+      corridorType: parsed.corridorType || "linear",
+      reasoning: parsed.reasoning || "AI-generated optimal green corridor",
+      features: parsed.features || ["Trees", "Bike lanes", "Shade structures"],
+    };
+  } catch (error) {
+    console.error("Error analyzing region for green corridor:", error);
+    return {
+      success: false,
+      corridorPath: [],
+      corridorType: "linear",
+      reasoning: "",
+      features: [],
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
 /**
  * Convert File to Base64 string
  */

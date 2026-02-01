@@ -3,8 +3,10 @@ import Navbar from '../components/Navbar';
 import { Layer } from '../types';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import L from 'leaflet';
+import 'leaflet.heat';
 import { STREET_VIEW_LOCATIONS, getStreetViewLocationsByLayers, StreetViewLocation } from '../data/streetViewLocations';
 import { fetchDelhiAQIStations, getAQIColor, getAQILevel, Station } from '../services/xmlAqiService';
+import { analyzeRegionForGreenCorridor } from '../services/geminiService';
 
 // Mock Data
 const MOCK_LOCATIONS = {
@@ -52,12 +54,14 @@ const MapExplorer: React.FC = () => {
   // Analysis Mode State
   const [isAnalysisMode, setIsAnalysisMode] = useState(false);
   const [regionAnalysis, setRegionAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupsRef = useRef<{ [key: string]: L.LayerGroup }>({});
   const analysisLayerRef = useRef<L.LayerGroup | null>(null);
   const streetViewLayerRef = useRef<L.LayerGroup | null>(null);
+  const heatMapLayerRef = useRef<any>(null);
 
   const toggleLayer = (id: string) => {
     setLayers(prev => prev.map(l => l.id === id ? { ...l, active: !l.active } : l));
@@ -280,7 +284,7 @@ const MapExplorer: React.FC = () => {
       const map = mapInstanceRef.current;
       if (!map) return;
 
-      const handleMapClick = (e: L.LeafletMouseEvent) => {
+      const handleMapClick = async (e: L.LeafletMouseEvent) => {
           if (isAnalysisMode && analysisLayerRef.current) {
               // Clear previous
               analysisLayerRef.current.clearLayers();
@@ -311,26 +315,91 @@ const MapExplorer: React.FC = () => {
                   })
               }).addTo(analysisLayerRef.current);
 
-              // Set mock data
-              setRegionAnalysis({
+              // Zoom to the selected region
+              map.flyTo([lat, lng], 16, { duration: 1.5 });
+
+              // Generate mock regional data first
+              const mockRegionData = {
                   coordinates: [lat, lng],
                   name: `Sector ${Math.floor(Math.random() * 20) + 1}`,
-                  heatScore: Math.floor(Math.random() * 30) + 60, // 60-90
-                  greenScore: Math.floor(Math.random() * 40) + 20, // 20-60
+                  heatScore: Math.floor(Math.random() * 30) + 60,
+                  greenScore: Math.floor(Math.random() * 40) + 20,
                   stats: {
                     trees: Math.floor(Math.random() * 200) + 50,
                     ev: Math.floor(Math.random() * 12),
                     solar: Math.floor(Math.random() * 50) + 10,
-                    area: (Math.random() * 2 + 0.5).toFixed(1) // km2
+                    area: (Math.random() * 2 + 0.5).toFixed(1)
                   },
                   recommendations: [
                      { title: "Increase Tree Canopy", impact: "High", icon: "forest", desc: "Plant 200+ native shade trees to reduce surface temps by 3°C." },
                      { title: "Cool Roof Retrofit", impact: "Medium", icon: "roofing", desc: "Apply reflective coating to industrial roofs in this sector." },
                      { title: "Permeable Pavements", impact: "Medium", icon: "water_drop", desc: "Replace 15% of asphalt with permeable materials." }
-                  ]
-              });
+                  ],
+                  corridorSuggestion: null as any
+              };
 
-              setSelectedProject(false); // Close project drawer if open
+              setRegionAnalysis(mockRegionData);
+              setSelectedProject(false);
+
+              // Generate AI green corridor if corridor layer is active
+              if (layers.find(l => l.id === 'corridor')?.active) {
+                  setIsAnalyzing(true);
+                  
+                  try {
+                      const activeLayers = layers.filter(l => l.active).map(l => l.name);
+                      const corridorSuggestion = await analyzeRegionForGreenCorridor(
+                          lat,
+                          lng,
+                          activeLayers,
+                          mockRegionData
+                      );
+
+                      if (corridorSuggestion.success && corridorSuggestion.corridorPath.length > 0) {
+                          // Draw AI-suggested corridor
+                          const suggestedCorridor = L.polyline(corridorSuggestion.corridorPath, {
+                              color: '#11d432',
+                              weight: 6,
+                              dashArray: '10, 10',
+                              opacity: 0.8
+                          }).addTo(analysisLayerRef.current);
+
+                          // Add halo
+                          L.polyline(corridorSuggestion.corridorPath, {
+                              color: '#11d432',
+                              weight: 20,
+                              opacity: 0.2,
+                              lineCap: 'round'
+                          }).addTo(analysisLayerRef.current);
+
+                          // Add corridor markers at key points
+                          corridorSuggestion.corridorPath.forEach((point, idx) => {
+                              if (idx === 0 || idx === corridorSuggestion.corridorPath.length - 1) {
+                                  L.circleMarker(point, {
+                                      radius: 6,
+                                      color: '#11d432',
+                                      fillColor: '#11d432',
+                                      fillOpacity: 0.8,
+                                      weight: 2
+                                  }).addTo(analysisLayerRef.current);
+                              }
+                          });
+
+                          // Update region analysis with corridor info
+                          setRegionAnalysis((prev: any) => ({
+                              ...prev,
+                              corridorSuggestion: {
+                                  type: corridorSuggestion.corridorType,
+                                  reasoning: corridorSuggestion.reasoning,
+                                  features: corridorSuggestion.features
+                              }
+                          }));
+                      }
+                  } catch (error) {
+                      console.error('Error generating AI corridor:', error);
+                  } finally {
+                      setIsAnalyzing(false);
+                  }
+              }
           }
       };
 
@@ -344,7 +413,7 @@ const MapExplorer: React.FC = () => {
       return () => {
           map.off('click', handleMapClick);
       }
-  }, [isAnalysisMode]);
+  }, [isAnalysisMode, layers]);
 
   // Update Layers Visibility
   useEffect(() => {
@@ -360,6 +429,19 @@ const MapExplorer: React.FC = () => {
         } else {
           if (mapInstanceRef.current!.hasLayer(group)) {
              mapInstanceRef.current!.removeLayer(group);
+          }
+        }
+      }
+      
+      // Handle heat map layer for AQI
+      if (layer.id === 'aqi' && heatMapLayerRef.current) {
+        if (layer.active) {
+          if (!mapInstanceRef.current!.hasLayer(heatMapLayerRef.current)) {
+            mapInstanceRef.current!.addLayer(heatMapLayerRef.current);
+          }
+        } else {
+          if (mapInstanceRef.current!.hasLayer(heatMapLayerRef.current)) {
+            mapInstanceRef.current!.removeLayer(heatMapLayerRef.current);
           }
         }
       }
@@ -393,9 +475,33 @@ const MapExplorer: React.FC = () => {
       
       console.log(`✅ Got ${stations.length} Delhi AQI stations`);
 
-      // Add markers to map
+      // Create heat map data from AQI stations
+      const heatData: [number, number, number][] = [];
+      
       stations.forEach((station: Station) => {
         const color = getAQIColor(station.aqi);
+        
+        // Normalize AQI value to 0-1 scale for heat map (max AQI ~500)
+        const intensity = Math.min(station.aqi / 300, 1.0);
+        
+        // Add main point with high intensity
+        heatData.push([station.latitude, station.longitude, intensity]);
+        
+        // Add many surrounding points for very large coverage area
+        for (let i = 0; i < 50; i++) {
+          const angle = (i / 50) * 2 * Math.PI;
+          const distance = Math.random() * 0.03; // Larger spread
+          const lat = station.latitude + Math.cos(angle) * distance;
+          const lng = station.longitude + Math.sin(angle) * distance;
+          heatData.push([lat, lng, intensity * (1 - distance / 0.03)]);
+        }
+        
+        // Add additional random points for smoother blending
+        for (let i = 0; i < 30; i++) {
+          const lat = station.latitude + (Math.random() - 0.5) * 0.04;
+          const lng = station.longitude + (Math.random() - 0.5) * 0.04;
+          heatData.push([lat, lng, intensity * 0.7]);
+        }
         
         const icon = L.divIcon({
           className: 'custom-div-icon',
@@ -419,6 +525,32 @@ const MapExplorer: React.FC = () => {
           .bindPopup(popupContent)
           .addTo(layerGroupsRef.current.aqi);
       });
+      
+      // Create or update heat map layer
+      if (heatMapLayerRef.current && mapInstanceRef.current!.hasLayer(heatMapLayerRef.current)) {
+        mapInstanceRef.current!.removeLayer(heatMapLayerRef.current);
+      }
+      
+      heatMapLayerRef.current = (L as any).heatLayer(heatData, {
+        radius: 60,
+        blur: 50,
+        maxZoom: 13,
+        minOpacity: 0.5,
+        max: 1.0,
+        gradient: {
+          0.0: '#22c55e',
+          0.2: '#84cc16',
+          0.4: '#eab308',
+          0.6: '#f97316',
+          0.8: '#ef4444',
+          1.0: '#991b1b'
+        }
+      });
+      
+      // Add heat map if AQI layer is active
+      if (layers.find(l => l.id === 'aqi')?.active) {
+        mapInstanceRef.current!.addLayer(heatMapLayerRef.current);
+      }
     };
 
     loadAQIData();
@@ -817,6 +949,39 @@ const MapExplorer: React.FC = () => {
                                 <span className="text-[10px] text-gray-400 uppercase">km²</span>
                             </div>
                         </div>
+
+                        {/* AI CORRIDOR SUGGESTION */}
+                        {regionAnalysis.corridorSuggestion && (
+                            <>
+                                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-green-600">route</span> AI Green Corridor
+                                </h3>
+                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border-2 border-green-200 shadow-sm mb-6">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="material-symbols-outlined text-green-600 bg-green-100 p-1.5 rounded-lg">eco</span>
+                                        <span className="font-bold text-green-900 text-sm capitalize">{regionAnalysis.corridorSuggestion.type} Corridor</span>
+                                        <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-600 text-white">AI Generated</span>
+                                    </div>
+                                    <p className="text-xs text-green-800 mb-3 leading-relaxed">{regionAnalysis.corridorSuggestion.reasoning}</p>
+                                    <div className="space-y-1">
+                                        {regionAnalysis.corridorSuggestion.features.map((feature: string, idx: number) => (
+                                            <div key={idx} className="flex items-start gap-2 text-xs text-green-700">
+                                                <span className="material-symbols-outlined text-green-600 text-sm mt-0.5">check_circle</span>
+                                                <span>{feature}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Loading indicator for AI analysis */}
+                        {isAnalyzing && (
+                            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl mb-6 flex items-center gap-3">
+                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                                <span className="text-xs text-blue-800 font-medium">AI analyzing optimal corridor placement...</span>
+                            </div>
+                        )}
 
                         <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">auto_awesome</span> AI Recommendations
