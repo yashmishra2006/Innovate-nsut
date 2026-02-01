@@ -1,127 +1,182 @@
-// Service to communicate with Gemini Image Generation API
-const API_BASE_URL = "http://34.131.185.69:8000";
+// Service to communicate with Gemini AI directly from the frontend
+import { GoogleGenAI } from "@google/genai";
+
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+if (!API_KEY) {
+  console.warn("⚠️ Gemini API Key not found. Please set VITE_GEMINI_API_KEY in your .env file");
+}
+
+const genAI = new GoogleGenAI({ apiKey: API_KEY || "" });
 
 export interface GenerateImageResponse {
   success: boolean;
   prompt: string;
   analysis: string;
-  generated_image_path: string;
-  generated_image_filename: string;
+  generated_image_url: string;
   original_image: string;
   error?: string;
 }
 
 export interface AnalyzeImageResponse {
   success: boolean;
-  filename: string;
   prompt: string;
   analysis: string;
-  image_dimensions: string;
+  error?: string;
 }
 
 /**
- * Generate a new image using Gemini 2.5 Flash Image model
- * @param file - The image file to transform
- * @param prompt - The creative prompt for image generation
- * @returns Generated image file response
+ * Convert File to Base64 string
  */
-export async function generateImage(file: File, prompt: string): Promise<Blob> {
-  const formData = new FormData();
-  formData.append("image", file);
-  formData.append("prompt", prompt);
-
-  const response = await fetch(`${API_BASE_URL}/generate-image/`, {
-    method: "POST",
-    body: formData,
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      // Remove data:image/...;base64, prefix
+      const base64Data = base64.split(',')[1];
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to generate image: ${response.statusText}`);
-  }
-
-  return response.blob();
 }
 
 /**
- * Generate image and get both the image and analysis text
+ * Get mime type from file
+ */
+function getMimeType(file: File): string {
+  return file.type || 'image/jpeg';
+}
+
+/**
+ * Generate image and get both the image and analysis text using Gemini 2.5 Flash Image
  * @param file - The image file to transform
  * @param prompt - The creative prompt for image generation
- * @returns JSON response with image path and analysis
+ * @returns JSON response with generated image and analysis
  */
 export async function generateImageWithDetails(
   file: File,
   prompt: string
 ): Promise<GenerateImageResponse> {
-  const formData = new FormData();
-  formData.append("image", file);
-  formData.append("prompt", prompt);
+  try {
+    if (!API_KEY) {
+      throw new Error("Gemini API Key is not configured");
+    }
 
-  const response = await fetch(`${API_BASE_URL}/generate-image-with-details/`, {
-    method: "POST",
-    body: formData,
-  });
+    const base64Data = await fileToBase64(file);
+    const mimeType = getMimeType(file);
 
-  if (!response.ok) {
-    throw new Error(`Failed to generate image: ${response.statusText}`);
+    const promptParts = [
+      { text: prompt },
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Data,
+        },
+      },
+    ];
+
+    const response = await genAI.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: promptParts,
+    });
+
+    let generatedImageUrl = '';
+    let analysisText = '';
+
+    // Extract text and image from response
+    for (const part of response.candidates[0].content.parts) {
+      if (part.text) {
+        analysisText += part.text;
+      } else if (part.inlineData) {
+        // Convert base64 image data to blob URL
+        const imageData = part.inlineData.data;
+        const byteCharacters = atob(imageData);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: part.inlineData.mimeType || 'image/png' });
+        generatedImageUrl = URL.createObjectURL(blob);
+      }
+    }
+
+    const originalImageUrl = URL.createObjectURL(file);
+
+    return {
+      success: true,
+      prompt: prompt,
+      analysis: analysisText || 'Image successfully transformed',
+      generated_image_url: generatedImageUrl,
+      original_image: originalImageUrl,
+    };
+  } catch (error) {
+    console.error("Error generating image:", error);
+    return {
+      success: false,
+      prompt: prompt,
+      analysis: "",
+      generated_image_url: "",
+      original_image: "",
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
   }
-
-  return response.json();
 }
 
 /**
- * Analyze an image using Gemini 1.5 Pro (text analysis only)
+ * Analyze an image using Gemini Vision
  * @param file - The image file to analyze
  * @param prompt - The analysis prompt
- * @returns Analysis text and image details
+ * @returns Analysis text and details
  */
 export async function analyzeImage(
   file: File,
   prompt: string
 ): Promise<AnalyzeImageResponse> {
-  const formData = new FormData();
-  formData.append("image", file);
-  formData.append("prompt", prompt);
+  try {
+    if (!API_KEY) {
+      throw new Error("Gemini API Key is not configured");
+    }
 
-  const response = await fetch(`${API_BASE_URL}/analyze-image/`, {
-    method: "POST",
-    body: formData,
-  });
+    const base64Data = await fileToBase64(file);
+    const mimeType = getMimeType(file);
 
-  if (!response.ok) {
-    throw new Error(`Failed to analyze image: ${response.statusText}`);
+    const promptParts = [
+      { text: prompt },
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Data,
+        },
+      },
+    ];
+
+    const response = await genAI.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      contents: promptParts,
+    });
+
+    let analysisText = '';
+    for (const part of response.candidates[0].content.parts) {
+      if (part.text) {
+        analysisText += part.text;
+      }
+    }
+
+    return {
+      success: true,
+      prompt: prompt,
+      analysis: analysisText,
+    };
+  } catch (error) {
+    console.error("Error analyzing image:", error);
+    return {
+      success: false,
+      prompt: prompt,
+      analysis: "",
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
   }
-
-  return response.json();
-}
-
-/**
- * Download a generated image from the API
- * @param filename - The filename of the generated image
- * @returns Image blob
- */
-export async function downloadGeneratedImage(filename: string): Promise<Blob> {
-  const response = await fetch(`${API_BASE_URL}/download/${filename}`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download image: ${response.statusText}`);
-  }
-
-  return response.blob();
-}
-
-/**
- * Check API health and available models
- */
-export async function checkAPIHealth(): Promise<{
-  status: string;
-  api_configured: boolean;
-  models_available: string[];
-}> {
-  const response = await fetch(`${API_BASE_URL}/health`);
-
-  if (!response.ok) {
-    throw new Error(`API health check failed: ${response.statusText}`);
-  }
-
-  return response.json();
 }

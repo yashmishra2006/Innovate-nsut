@@ -1,9 +1,100 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { Globe } from "../components/ui/globe";
+import BeforeAfterSlider from "../components/BeforeAfterSlider";
+import { generateImageWithDetails } from "../services/geminiService";
 
 const Landing: React.FC = () => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const [beforeImage, setBeforeImage] = useState<string>('');
+  const [afterImage, setAfterImage] = useState<string>('');
+  const [analysis, setAnalysis] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [toggles, setToggles] = useState({
+    trees: true,
+    solarPanels: false,
+    greenRoofs: true,
+    gardens: true,
+    bikeInfra: false,
+    vegetation: false
+  });
+
+  const handleToggle = (key: string) => {
+    setToggles(prev => ({ ...prev, [key]: !(prev as any)[key] }));
+  };
+
+  const buildPrompt = (): string => {
+    const interventions: string[] = [];
+    if (toggles.trees) interventions.push("add lush green trees throughout");
+    if (toggles.solarPanels) interventions.push("add solar panels on roofs");
+    if (toggles.greenRoofs) interventions.push("add green roofs with vegetation");
+    if (toggles.gardens) interventions.push("add community gardens and green spaces");
+    if (toggles.bikeInfra) interventions.push("add bike lanes and cycling infrastructure");
+    if (toggles.vegetation) interventions.push("add dense vegetation and plants");
+    
+    const basePrompt = interventions.length > 0 
+      ? `Transform this urban scene into a sustainable solarpunk city by: ${interventions.join(", ")}. Make it look professional, photorealistic, and vibrant.`
+      : "Transform this urban scene into a sustainable solarpunk city with greenery, renewable energy, and eco-friendly infrastructure. Make it look professional and photorealistic.";
+    
+    return basePrompt;
+  };
+
+  const generateTransformation = async (file: File) => {
+    try {
+      setError('');
+      setIsGenerating(true);
+
+      const prompt = buildPrompt();
+      const response = await generateImageWithDetails(file, prompt);
+
+      if (response.success) {
+        setAfterImage(response.generated_image_url);
+        setAnalysis(response.analysis);
+        setShowResult(true);
+      } else {
+        setError(`Generation failed: ${response.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate image.');
+      console.error('Error generating image:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadedFile(file);
+      setShowResult(false);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setBeforeImage(result);
+      };
+      reader.readAsDataURL(file);
+
+      await generateTransformation(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process image.');
+      console.error('Error processing file:', err);
+    }
+  };
+
+  const handleRegenerate = () => {
+    if (uploadedFile) {
+      generateTransformation(uploadedFile);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-background-light dark:bg-background-dark text-text-main font-display">
       <Navbar />
@@ -263,6 +354,153 @@ const Landing: React.FC = () => {
                 </div>
               </Link>
             </div>
+          </div>
+        </section>
+
+        {/* AI Transformation Section */}
+        <section className="py-16 sm:py-24 bg-gradient-to-b from-background-light to-white dark:from-background-dark dark:to-surface-dark">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center mb-12">
+              <h2 className="text-3xl font-bold tracking-tight mb-4 sm:text-4xl text-text-main">
+                Transform Your City with AI
+              </h2>
+              <p className="text-lg text-text-muted">
+                Upload an image of any urban area and watch it transform into a sustainable solarpunk paradise
+              </p>
+            </div>
+
+            {!showResult ? (
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white dark:bg-surface-dark rounded-2xl border-2 border-dashed border-primary/30 p-12 text-center">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  
+                  {!beforeImage ? (
+                    <div>
+                      <span className="material-symbols-outlined text-6xl text-primary mb-4 block">
+                        cloud_upload
+                      </span>
+                      <h3 className="text-xl font-bold text-text-main mb-2">
+                        Upload Your Image
+                      </h3>
+                      <p className="text-text-muted mb-6">
+                        Drop an image of any street or urban area to transform
+                      </p>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-[#0d1b10] font-bold rounded-xl hover:bg-primary/90 transition-colors"
+                      >
+                        <span className="material-symbols-outlined">add_photo_alternate</span>
+                        Choose Image
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="mb-6">
+                        <img
+                          src={beforeImage}
+                          alt="Uploaded"
+                          className="max-h-96 mx-auto rounded-lg shadow-lg"
+                        />
+                      </div>
+                      
+                      {/* Toggles */}
+                      <div className="bg-background-light dark:bg-background-dark rounded-xl p-6 mb-6">
+                        <h4 className="text-lg font-bold text-text-main mb-4">
+                          Select Transformations
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          {[
+                            { key: 'trees', label: 'Add Trees', icon: 'park' },
+                            { key: 'solarPanels', label: 'Solar Panels', icon: 'solar_power' },
+                            { key: 'greenRoofs', label: 'Green Roofs', icon: 'roofing' },
+                            { key: 'gardens', label: 'Community Gardens', icon: 'yard' },
+                            { key: 'bikeInfra', label: 'Bike Infrastructure', icon: 'pedal_bike' },
+                            { key: 'vegetation', label: 'Dense Vegetation', icon: 'forest' }
+                          ].map(({ key, label, icon }) => (
+                            <button
+                              key={key}
+                              onClick={() => handleToggle(key)}
+                              className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                                (toggles as any)[key]
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'border-gray-200 dark:border-gray-700 text-text-muted hover:border-primary/50'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-2xl">
+                                {icon}
+                              </span>
+                              <span className="text-sm font-semibold">{label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {isGenerating && (
+                        <div className="flex items-center justify-center gap-3 text-primary">
+                          <div className="animate-spin size-6 border-4 border-primary/30 border-t-primary rounded-full"></div>
+                          <span className="font-semibold">Generating your sustainable future...</span>
+                        </div>
+                      )}
+                      
+                      {error && (
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                          <p className="text-red-600 dark:text-red-400">{error}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-6xl mx-auto">
+                <div className="bg-white dark:bg-surface-dark rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-2xl">
+                  <BeforeAfterSlider
+                    beforeImage={beforeImage}
+                    afterImage={afterImage}
+                  />
+                  
+                  {analysis && (
+                    <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+                      <h4 className="text-lg font-bold text-text-main mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">auto_awesome</span>
+                        AI Analysis
+                      </h4>
+                      <p className="text-text-muted leading-relaxed">{analysis}</p>
+                    </div>
+                  )}
+                  
+                  <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 justify-center">
+                    <button
+                      onClick={handleRegenerate}
+                      disabled={isGenerating}
+                      className="flex items-center gap-2 px-6 py-3 bg-primary text-[#0d1b10] font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined">refresh</span>
+                      Regenerate
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowResult(false);
+                        setBeforeImage('');
+                        setAfterImage('');
+                        setUploadedFile(null);
+                        setError('');
+                      }}
+                      className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-surface-dark border-2 border-gray-200 dark:border-gray-700 text-text-main font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <span className="material-symbols-outlined">upload</span>
+                      Upload New Image
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </main>
