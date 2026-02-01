@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import { Layer } from '../types';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import L from 'leaflet';
+import { fetchDelhiAQIStations, getAQIColor, getAQILevel, Station } from '../services/xmlAqiService';
 
 // Mock Data
 const MOCK_LOCATIONS = {
@@ -211,25 +212,8 @@ const MapExplorer: React.FC = () => {
             }).addTo(layerGroupsRef.current.hotspot);
         });
 
-        // AQI Layer
-        const aqiPoints = [
-            { coords: [28.6100, 77.2050], level: 'Good', color: '#22c55e' },
-            { coords: [28.6180, 77.2120], level: 'Moderate', color: '#eab308' },
-            { coords: [28.6160, 77.1980], level: 'Poor', color: '#ef4444' },
-            { coords: [28.6050, 77.2080], level: 'Moderate', color: '#eab308' },
-        ];
-
-        aqiPoints.forEach((point: any) => {
-            const icon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div class="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md" style="background-color: ${point.color}; opacity: 0.8">
-                    <span class="text-white text-xs font-bold">AQI</span>
-                </div>`,
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
-            });
-            L.marker(point.coords, { icon }).bindPopup(`<div class="text-sm font-semibold">${point.level}</div>`).addTo(layerGroupsRef.current.aqi);
-        });
+        // AQI Layer - Initialize empty, will be populated when toggled
+        layerGroupsRef.current.aqi = L.layerGroup();
 
         // Green Corridor
         const corridorLine = L.polyline(MOCK_LOCATIONS.corridor_path, {
@@ -383,6 +367,55 @@ const MapExplorer: React.FC = () => {
         if (mapInstanceRef.current!.hasLayer(projectGroup)) mapInstanceRef.current!.removeLayer(projectGroup);
     }
 
+  }, [layers]);
+
+  // Load AQI data from XML when AQI layer is toggled
+  useEffect(() => {
+    const aqiLayer = layers.find(l => l.id === 'aqi');
+    if (!aqiLayer?.active || !mapInstanceRef.current) return;
+
+    const loadAQIData = async () => {
+      console.log('📊 Loading Delhi AQI data from XML...');
+      
+      // Clear previous markers
+      if (layerGroupsRef.current.aqi) {
+        layerGroupsRef.current.aqi.clearLayers();
+      }
+
+      // Fetch Delhi AQI stations from XML
+      const stations = await fetchDelhiAQIStations();
+      
+      console.log(`✅ Got ${stations.length} Delhi AQI stations`);
+
+      // Add markers to map
+      stations.forEach((station: Station) => {
+        const color = getAQIColor(station.aqi);
+        
+        const icon = L.divIcon({
+          className: 'custom-div-icon',
+          html: `<div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white shadow-lg" style="background-color: ${color}; opacity: 0.9">
+            <span class="text-white text-xs font-bold">${station.aqi}</span>
+          </div>`,
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+        });
+
+        const popupContent = `
+          <div class="text-sm p-2 font-semibold">
+            <div><strong>${station.id}</strong></div>
+            <div class="text-xs mt-1">AQI: ${station.aqi} - ${station.level}</div>
+            ${station.primaryPollutant ? `<div class="text-xs">Primary: ${station.primaryPollutant}</div>` : ''}
+            <div class="text-xs text-gray-500">Updated: ${station.lastupdate}</div>
+          </div>
+        `;
+
+        L.marker([station.latitude, station.longitude], { icon })
+          .bindPopup(popupContent)
+          .addTo(layerGroupsRef.current.aqi);
+      });
+    };
+
+    loadAQIData();
   }, [layers]);
 
   return (
