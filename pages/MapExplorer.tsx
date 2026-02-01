@@ -4,7 +4,7 @@ import { Layer } from '../types';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import L from 'leaflet';
 import 'leaflet.heat';
-import { STREET_VIEW_LOCATIONS, getStreetViewLocationsByLayers, StreetViewLocation } from '../data/streetViewLocations';
+import { STREET_VIEW_LOCATIONS, getStreetViewLocationsByLayers, StreetViewLocation } from '../public/data/streetViewLocations';
 import { fetchDelhiAQIStations, getAQIColor, getAQILevel, Station } from '../services/xmlAqiService';
 import { analyzeRegionForGreenCorridor } from '../services/geminiService';
 
