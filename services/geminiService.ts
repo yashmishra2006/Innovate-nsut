@@ -1,5 +1,13 @@
-// Service to communicate with Gemini AI via secure backend API
-const API_URL = import.meta.env.VITE_API_URL || '/api/gemini';
+// Service to communicate with Gemini AI directly from the frontend
+import { GoogleGenAI } from "@google/genai";
+
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+if (!API_KEY) {
+  console.warn("⚠️ Gemini API Key not found. Please set VITE_GEMINI_API_KEY in your .env file");
+}
+
+const genAI = new GoogleGenAI({ apiKey: API_KEY || "" });
 
 export interface GenerateImageResponse {
   success: boolean;
@@ -27,93 +35,6 @@ export interface GreenCorridorSuggestion {
 }
 
 /**
- * Generate image transformation with sustainability features
- */
-export async function generateImageWithDetails(
-  originalImage: string,
-  toggles: {
-    trees: boolean;
-    solarPanels: boolean;
-    greenRoofs: boolean;
-    gardens: boolean;
-    bikeInfra: boolean;
-    vegetation: boolean;
-  }
-): Promise<GenerateImageResponse> {
-  try {
-    const features: string[] = [];
-    if (toggles.trees) features.push('add native trees and shade canopy');
-    if (toggles.solarPanels) features.push('install solar panels on rooftops');
-    if (toggles.greenRoofs) features.push('create green roofs with vegetation');
-    if (toggles.gardens) features.push('add community gardens and green spaces');
-    if (toggles.bikeInfra) features.push('add bike lanes and cycling infrastructure');
-    if (toggles.vegetation) features.push('increase ground-level vegetation and landscaping');
-
-    const prompt = features.length > 0 
-      ? `Please ${features.join(', ')}.` 
-      : 'Add sustainable urban improvements to this scene.';
-
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'generate-image',
-        originalImage,
-        prompt,
-        toggles
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error generating image:', error);
-    return {
-      success: false,
-      prompt: '',
-      analysis: '',
-      generated_image_url: '',
-      original_image: originalImage,
-      error: error.message || 'Failed to generate image'
-    };
-  }
-}
-
-/**
- * Analyze an image with Gemini Vision
- */
-export async function analyzeImage(imageBase64: string, question: string): Promise<AnalyzeImageResponse> {
-  try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'analyze-image',
-        imageBase64,
-        question
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error analyzing image:', error);
-    return {
-      success: false,
-      prompt: question,
-      analysis: '',
-      error: error.message || 'Failed to analyze image'
-    };
-  }
-}
-
-/**
  * Analyze region and suggest optimal green corridor placement
  */
 export async function analyzeRegionForGreenCorridor(
@@ -123,35 +44,9 @@ export async function analyzeRegionForGreenCorridor(
   regionData: any
 ): Promise<GreenCorridorSuggestion> {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'analyze-corridor',
-        centerLat,
-        centerLng,
-        activeLayers,
-        regionData
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+    if (!API_KEY) {
+      throw new Error("Gemini API Key is not configured");
     }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error analyzing corridor:', error);
-    return {
-      success: false,
-      corridorPath: [],
-      corridorType: 'mixed-use',
-      reasoning: 'Failed to generate corridor suggestion',
-      features: [],
-      error: error.message || 'Failed to analyze region'
-    };
-  }
-}
 
     const model = genAI.models.generateContent({
       model: "gemini-2.5-flash",
