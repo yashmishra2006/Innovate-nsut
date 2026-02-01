@@ -4,49 +4,55 @@ import Navbar from "../components/Navbar";
 import { Globe } from "../components/ui/globe";
 import BeforeAfterSlider from "../components/BeforeAfterSlider";
 import { generateImageWithDetails } from "../services/geminiService";
+import { EncryptedText } from "../components/ui/encrypted-text";
 
 const Landing: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [beforeImage, setBeforeImage] = useState<string>('');
-  const [afterImage, setAfterImage] = useState<string>('');
-  const [analysis, setAnalysis] = useState<string>('');
-  const [error, setError] = useState<string>('');
+  const [beforeImage, setBeforeImage] = useState<string>("");
+  const [afterImage, setAfterImage] = useState<string>("");
+  const [analysis, setAnalysis] = useState<string>("");
+  const [error, setError] = useState<string>("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [toggles, setToggles] = useState({
     trees: true,
     solarPanels: false,
     greenRoofs: true,
     gardens: true,
     bikeInfra: false,
-    vegetation: false
+    vegetation: false,
   });
 
   const handleToggle = (key: string) => {
-    setToggles(prev => ({ ...prev, [key]: !(prev as any)[key] }));
+    setToggles((prev) => ({ ...prev, [key]: !(prev as any)[key] }));
   };
 
   const buildPrompt = (): string => {
     const interventions: string[] = [];
     if (toggles.trees) interventions.push("add lush green trees throughout");
     if (toggles.solarPanels) interventions.push("add solar panels on roofs");
-    if (toggles.greenRoofs) interventions.push("add green roofs with vegetation");
-    if (toggles.gardens) interventions.push("add community gardens and green spaces");
-    if (toggles.bikeInfra) interventions.push("add bike lanes and cycling infrastructure");
-    if (toggles.vegetation) interventions.push("add dense vegetation and plants");
-    
-    const basePrompt = interventions.length > 0 
-      ? `Transform this urban scene into a sustainable solarpunk city by: ${interventions.join(", ")}. Make it look professional, photorealistic, and vibrant.`
-      : "Transform this urban scene into a sustainable solarpunk city with greenery, renewable energy, and eco-friendly infrastructure. Make it look professional and photorealistic.";
-    
+    if (toggles.greenRoofs)
+      interventions.push("add green roofs with vegetation");
+    if (toggles.gardens)
+      interventions.push("add community gardens and green spaces");
+    if (toggles.bikeInfra)
+      interventions.push("add bike lanes and cycling infrastructure");
+    if (toggles.vegetation)
+      interventions.push("add dense vegetation and plants");
+
+    const basePrompt =
+      interventions.length > 0
+        ? `Transform this urban scene into a sustainable solarpunk city by: ${interventions.join(", ")}. Make it look professional, photorealistic, and vibrant.`
+        : "Transform this urban scene into a sustainable solarpunk city with greenery, renewable energy, and eco-friendly infrastructure. Make it look professional and photorealistic.";
+
     return basePrompt;
   };
 
   const generateTransformation = async (file: File) => {
     try {
-      setError('');
+      setError("");
       setIsGenerating(true);
 
       const prompt = buildPrompt();
@@ -57,24 +63,28 @@ const Landing: React.FC = () => {
         setAnalysis(response.analysis);
         setShowResult(true);
       } else {
-        setError(`Generation failed: ${response.error || 'Unknown error'}`);
+        setError(`Generation failed: ${response.error || "Unknown error"}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate image.');
-      console.error('Error generating image:', err);
+      setError(
+        err instanceof Error ? err.message : "Failed to generate image.",
+      );
+      console.error("Error generating image:", err);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       setUploadedFile(file);
       setShowResult(false);
-      
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
@@ -84,8 +94,8 @@ const Landing: React.FC = () => {
 
       await generateTransformation(file);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to process image.');
-      console.error('Error processing file:', err);
+      setError(err instanceof Error ? err.message : "Failed to process image.");
+      console.error("Error processing file:", err);
     }
   };
 
@@ -111,11 +121,19 @@ const Landing: React.FC = () => {
                   </span>
                   <span>Future-Ready Urban Planning</span>
                 </div>
-                <h1 className="text-4xl font-black leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl mb-6">
+                {/* <h1 className="text-4xl font-black leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl mb-6">
                   Design the Cities of{" "}
                   <span className="text-primary">Tomorrow</span>, Today
-                </h1>
-                <p className="text-lg text-text-muted mb-8 max-w-xl leading-relaxed">
+                </h1> */}
+                <div className="text-4xl font-black leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl mb-6">
+                  <p className="text-left">
+                    Design the Cities of{" "}
+                    <EncryptedText className="text-primary"
+                      text="A Better Tomorrow"
+                    />
+                  </p>
+                </div>
+                <p className="text-lg  text-text-muted mb-8 max-w-xl leading-relaxed">
                   Visualize the future of urban living. Plan, design, and
                   measure sustainability improvements in real-time with our
                   Solarpunk-inspired toolkit.
@@ -203,26 +221,38 @@ const Landing: React.FC = () => {
             </div>
           </div>
         </section>
- 
+
         {/* Key Metrics */}
         <section className="py-12 bg-[var(--color-background-light)] dark:bg-[var(--color-background-dark)]">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
-                <div className="text-2xl font-extrabold text-primary">2,000+</div>
-                <div className="text-sm text-text-muted mt-1">Urban planners</div>
+                <div className="text-2xl font-extrabold text-primary">
+                  2,000+
+                </div>
+                <div className="text-sm text-text-muted mt-1">
+                  Urban planners
+                </div>
               </div>
               <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
                 <div className="text-2xl font-extrabold text-primary">150K</div>
-                <div className="text-sm text-text-muted mt-1">Buildings modeled</div>
+                <div className="text-sm text-text-muted mt-1">
+                  Buildings modeled
+                </div>
               </div>
               <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
                 <div className="text-2xl font-extrabold text-primary">24%</div>
-                <div className="text-sm text-text-muted mt-1">Avg. green cover gain</div>
+                <div className="text-sm text-text-muted mt-1">
+                  Avg. green cover gain
+                </div>
               </div>
               <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
-                <div className="text-2xl font-extrabold text-primary">98 AQI</div>
-                <div className="text-sm text-text-muted mt-1">Sample project air quality</div>
+                <div className="text-2xl font-extrabold text-primary">
+                  98 AQI
+                </div>
+                <div className="text-sm text-text-muted mt-1">
+                  Sample project air quality
+                </div>
               </div>
             </div>
           </div>
@@ -232,22 +262,42 @@ const Landing: React.FC = () => {
         <section className="py-16 sm:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center mb-12">
-              <h2 className="text-3xl font-bold tracking-tight mb-4 sm:text-4xl text-text-main">What planners are saying</h2>
-              <p className="text-lg text-text-muted">Real-world results from districts using TerraVision.</p>
+              <h2 className="text-3xl font-bold tracking-tight mb-4 sm:text-4xl text-text-main">
+                What planners are saying
+              </h2>
+              <p className="text-lg text-text-muted">
+                Real-world results from districts using TerraVision.
+              </p>
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
               <div className="p-6 rounded-xl bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
-                <p className="text-text-muted text-sm">"TerraVision helped us visualize a 30% increase in green cover across the pilot corridor — stakeholders could finally see the impact."</p>
-                <div className="mt-4 font-semibold text-text-main">— Dr. Meera Kapoor, Urban Design Lead</div>
+                <p className="text-text-muted text-sm">
+                  "TerraVision helped us visualize a 30% increase in green cover
+                  across the pilot corridor — stakeholders could finally see the
+                  impact."
+                </p>
+                <div className="mt-4 font-semibold text-text-main">
+                  — Dr. Meera Kapoor, Urban Design Lead
+                </div>
               </div>
               <div className="p-6 rounded-xl bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
-                <p className="text-text-muted text-sm">"AI renders made community consultations productive and fast. We shortened approval cycles by months."</p>
-                <div className="mt-4 font-semibold text-text-main">— Ajay Singh, Municipal Planner</div>
+                <p className="text-text-muted text-sm">
+                  "AI renders made community consultations productive and fast.
+                  We shortened approval cycles by months."
+                </p>
+                <div className="mt-4 font-semibold text-text-main">
+                  — Ajay Singh, Municipal Planner
+                </div>
               </div>
               <div className="p-6 rounded-xl bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
-                <p className="text-text-muted text-sm">"The impact dashboard gave us confidence to scale the program city-wide."</p>
-                <div className="mt-4 font-semibold text-text-main">— Lina Rodriguez, Sustainability Director</div>
+                <p className="text-text-muted text-sm">
+                  "The impact dashboard gave us confidence to scale the program
+                  city-wide."
+                </p>
+                <div className="mt-4 font-semibold text-text-main">
+                  — Lina Rodriguez, Sustainability Director
+                </div>
               </div>
             </div>
           </div>
@@ -258,12 +308,27 @@ const Landing: React.FC = () => {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-4 bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
               <div>
-                <h3 className="text-xl font-bold text-text-main">Ready to plan sustainably at scale?</h3>
-                <p className="text-text-muted">Start a project, invite collaborators, and measure real impact.</p>
+                <h3 className="text-xl font-bold text-text-main">
+                  Ready to plan sustainably at scale?
+                </h3>
+                <p className="text-text-muted">
+                  Start a project, invite collaborators, and measure real
+                  impact.
+                </p>
               </div>
               <div className="flex gap-3">
-                <Link to="/map" className="rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground">Get Started</Link>
-                <Link to="/signup" className="rounded-xl border border-[var(--color-border-light)] px-6 py-3 font-semibold">Request Demo</Link>
+                <Link
+                  to="/map"
+                  className="rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground"
+                >
+                  Get Started
+                </Link>
+                <Link
+                  to="/signup"
+                  className="rounded-xl border border-[var(--color-border-light)] px-6 py-3 font-semibold"
+                >
+                  Request Demo
+                </Link>
               </div>
             </div>
           </div>
@@ -365,7 +430,8 @@ const Landing: React.FC = () => {
                 Transform Your City with AI
               </h2>
               <p className="text-lg text-text-muted">
-                Upload an image of any urban area and watch it transform into a sustainable solarpunk paradise
+                Upload an image of any urban area and watch it transform into a
+                sustainable solarpunk paradise
               </p>
             </div>
 
@@ -379,7 +445,7 @@ const Landing: React.FC = () => {
                     accept="image/*"
                     className="hidden"
                   />
-                  
+
                   {!beforeImage ? (
                     <div>
                       <span className="material-symbols-outlined text-6xl text-primary mb-4 block">
@@ -395,7 +461,9 @@ const Landing: React.FC = () => {
                         onClick={() => fileInputRef.current?.click()}
                         className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-[#0d1b10] font-bold rounded-xl hover:bg-primary/90 transition-colors"
                       >
-                        <span className="material-symbols-outlined">add_photo_alternate</span>
+                        <span className="material-symbols-outlined">
+                          add_photo_alternate
+                        </span>
                         Choose Image
                       </button>
                     </div>
@@ -408,7 +476,7 @@ const Landing: React.FC = () => {
                           className="max-h-96 mx-auto rounded-lg shadow-lg"
                         />
                       </div>
-                      
+
                       {/* Toggles */}
                       <div className="bg-background-light dark:bg-background-dark rounded-xl p-6 mb-6">
                         <h4 className="text-lg font-bold text-text-main mb-4">
@@ -416,26 +484,48 @@ const Landing: React.FC = () => {
                         </h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           {[
-                            { key: 'trees', label: 'Add Trees', icon: 'park' },
-                            { key: 'solarPanels', label: 'Solar Panels', icon: 'solar_power' },
-                            { key: 'greenRoofs', label: 'Green Roofs', icon: 'roofing' },
-                            { key: 'gardens', label: 'Community Gardens', icon: 'yard' },
-                            { key: 'bikeInfra', label: 'Bike Infrastructure', icon: 'pedal_bike' },
-                            { key: 'vegetation', label: 'Dense Vegetation', icon: 'forest' }
+                            { key: "trees", label: "Add Trees", icon: "park" },
+                            {
+                              key: "solarPanels",
+                              label: "Solar Panels",
+                              icon: "solar_power",
+                            },
+                            {
+                              key: "greenRoofs",
+                              label: "Green Roofs",
+                              icon: "roofing",
+                            },
+                            {
+                              key: "gardens",
+                              label: "Community Gardens",
+                              icon: "yard",
+                            },
+                            {
+                              key: "bikeInfra",
+                              label: "Bike Infrastructure",
+                              icon: "pedal_bike",
+                            },
+                            {
+                              key: "vegetation",
+                              label: "Dense Vegetation",
+                              icon: "forest",
+                            },
                           ].map(({ key, label, icon }) => (
                             <button
                               key={key}
                               onClick={() => handleToggle(key)}
                               className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
                                 (toggles as any)[key]
-                                  ? 'border-primary bg-primary/10 text-primary'
-                                  : 'border-gray-200 dark:border-gray-700 text-text-muted hover:border-primary/50'
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-gray-200 dark:border-gray-700 text-text-muted hover:border-primary/50"
                               }`}
                             >
                               <span className="material-symbols-outlined text-2xl">
                                 {icon}
                               </span>
-                              <span className="text-sm font-semibold">{label}</span>
+                              <span className="text-sm font-semibold">
+                                {label}
+                              </span>
                             </button>
                           ))}
                         </div>
@@ -444,13 +534,17 @@ const Landing: React.FC = () => {
                       {isGenerating && (
                         <div className="flex items-center justify-center gap-3 text-primary">
                           <div className="animate-spin size-6 border-4 border-primary/30 border-t-primary rounded-full"></div>
-                          <span className="font-semibold">Generating your sustainable future...</span>
+                          <span className="font-semibold">
+                            Generating your sustainable future...
+                          </span>
                         </div>
                       )}
-                      
+
                       {error && (
                         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-                          <p className="text-red-600 dark:text-red-400">{error}</p>
+                          <p className="text-red-600 dark:text-red-400">
+                            {error}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -464,17 +558,21 @@ const Landing: React.FC = () => {
                     beforeImage={beforeImage}
                     afterImage={afterImage}
                   />
-                  
+
                   {analysis && (
                     <div className="p-6 border-t border-gray-200 dark:border-gray-700">
                       <h4 className="text-lg font-bold text-text-main mb-3 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">auto_awesome</span>
+                        <span className="material-symbols-outlined text-primary">
+                          auto_awesome
+                        </span>
                         AI Analysis
                       </h4>
-                      <p className="text-text-muted leading-relaxed">{analysis}</p>
+                      <p className="text-text-muted leading-relaxed">
+                        {analysis}
+                      </p>
                     </div>
                   )}
-                  
+
                   <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 justify-center">
                     <button
                       onClick={handleRegenerate}
@@ -487,10 +585,10 @@ const Landing: React.FC = () => {
                     <button
                       onClick={() => {
                         setShowResult(false);
-                        setBeforeImage('');
-                        setAfterImage('');
+                        setBeforeImage("");
+                        setAfterImage("");
                         setUploadedFile(null);
-                        setError('');
+                        setError("");
                       }}
                       className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-surface-dark border-2 border-gray-200 dark:border-gray-700 text-text-main font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
