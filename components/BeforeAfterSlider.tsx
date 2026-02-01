@@ -53,7 +53,7 @@ const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
 
   return (
     <div 
-      className="relative w-full h-full overflow-hidden group select-none cursor-ew-resize"
+      className="relative w-full h-[600px] overflow-hidden group select-none cursor-ew-resize bg-gray-900"
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onTouchMove={handleTouchMove}
@@ -61,41 +61,60 @@ const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
       onTouchStart={handleMouseDown}
       onTouchEnd={handleMouseUp}
     >
-      {/* Background Image (After) */}
-      <div 
-        className="absolute inset-0 w-full h-full bg-cover bg-center"
-        style={{ backgroundImage: `url('${afterImage}')` }}
+      {/* After Image (Bottom Layer - Full) */}
+      <img
+        src={afterImage}
+        alt={labelAfter}
+        className="absolute inset-0 w-full h-full object-cover"
+        draggable={false}
       />
       <div className="absolute top-4 right-4 bg-primary/90 text-background-dark px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm backdrop-blur-sm z-10">
         {labelAfter}
       </div>
 
-      {/* Foreground Image (Before) - Clipped */}
+      {/* Before Image (Top Layer - Clipped) */}
       <div 
-        className="absolute inset-0 w-full h-full bg-cover bg-center border-r-2 border-primary"
+        className="absolute inset-0 overflow-hidden"
         style={{ 
-          backgroundImage: `url('${beforeImage}')`,
-          width: `${sliderPosition}%` 
+          clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`
         }}
       >
-        <div className="absolute top-4 left-4 bg-gray-900/80 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm backdrop-blur-sm">
+        <img
+          src={beforeImage}
+          alt={labelBefore}
+          className="absolute inset-0 w-full h-full object-cover"
+          draggable={false}
+        />
+        <div className="absolute top-4 left-4 bg-gray-900/90 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm backdrop-blur-sm">
           {labelBefore}
         </div>
       </div>
 
+      {/* Slider Line */}
+      <div 
+        className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg z-20"
+        style={{ left: `${sliderPosition}%` }}
+      />
+
       {/* Slider Handle */}
       <div 
-        className="absolute top-0 bottom-0 w-1 bg-transparent z-20"
+        className="absolute top-0 bottom-0 w-1 bg-transparent z-30"
         style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
       >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-lg text-white">
-          <span className="material-symbols-outlined text-xl">compare_arrows</span>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-2xl border-2 border-primary cursor-grab active:cursor-grabbing">
+          <div className="flex gap-0.5">
+            <span className="material-symbols-outlined text-lg text-primary">chevron_left</span>
+            <span className="material-symbols-outlined text-lg text-primary">chevron_right</span>
+          </div>
         </div>
       </div>
       
       {/* Hover Instruction */}
       <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full backdrop-blur-md">Drag to compare</span>
+        <span className="bg-black/70 text-white text-sm px-4 py-2 rounded-full backdrop-blur-md shadow-lg">
+          <span className="material-symbols-outlined text-sm align-middle mr-1">drag_indicator</span>
+          Drag to compare
+        </span>
       </div>
     </div>
   );
