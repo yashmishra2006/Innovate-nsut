@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import { Globe } from "../components/ui/globe";
 
 const Landing: React.FC = () => {
   return (
@@ -68,15 +69,16 @@ const Landing: React.FC = () => {
                 <div className="absolute -top-10 -right-10 size-64 rounded-full bg-primary/20 blur-3xl pointer-events-none"></div>
                 <div className="absolute -bottom-10 -left-10 size-64 rounded-full bg-blue-400/20 dark:bg-blue-900/20 blur-3xl pointer-events-none"></div>
                 <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 group">
-                  <div
+                  <Globe />
+                  {/* <div
                     className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
                     style={{
                       backgroundImage:
                         "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDFXXaLvynFtAcb_csL9JOj1zrRBRj50XA4fN3Jg0wZKckh6aWYabDFg_pZUocA4BM2NVF9pOmC1QKAUx_5GWAn-I6aqrpqkJIaRcdn57nNWgleL2TqiBZjQc2kX6upoYbkoYS8WupX5-tSebZwNIMU9LlU_5DzAFwZvx_ooUdAiGdpLbCqKu2Is50hmyw-p_SAC9ZfnBqGU-2_GTmhe7ZTWvuRXFIu2alXFORUh3c611ubzZJccnhwyGjFdcYEpcOIOnwyMryGtA')",
                     }}
-                  />
+                  /> */}
                   {/* Floating Card */}
-                  <div className="absolute bottom-6 left-6 right-6 rounded-xl bg-white/90 dark:bg-surface-dark/90 backdrop-blur-md p-4 border border-white/20 dark:border-white/10 shadow-lg">
+                  {/* <div className="absolute bottom-6 left-6 right-6 rounded-xl bg-white/90 dark:bg-surface-dark/90 backdrop-blur-md p-4 border border-white/20 dark:border-white/10 shadow-lg">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="flex size-2 rounded-full bg-green-500 animate-pulse"></span>
@@ -104,13 +106,77 @@ const Landing: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
           </div>
         </section>
+ 
+        {/* Key Metrics */}
+        <section className="py-12 bg-[var(--color-background-light)] dark:bg-[var(--color-background-dark)]">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+              <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
+                <div className="text-2xl font-extrabold text-primary">2,000+</div>
+                <div className="text-sm text-text-muted mt-1">Urban planners</div>
+              </div>
+              <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
+                <div className="text-2xl font-extrabold text-primary">150K</div>
+                <div className="text-sm text-text-muted mt-1">Buildings modeled</div>
+              </div>
+              <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
+                <div className="text-2xl font-extrabold text-primary">24%</div>
+                <div className="text-sm text-text-muted mt-1">Avg. green cover gain</div>
+              </div>
+              <div className="rounded-lg bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] p-6 border border-[var(--color-border-light)]">
+                <div className="text-2xl font-extrabold text-primary">98 AQI</div>
+                <div className="text-sm text-text-muted mt-1">Sample project air quality</div>
+              </div>
+            </div>
+          </div>
+        </section>
 
+        {/* Testimonials / Case Studies */}
+        <section className="py-16 sm:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center mb-12">
+              <h2 className="text-3xl font-bold tracking-tight mb-4 sm:text-4xl text-text-main">What planners are saying</h2>
+              <p className="text-lg text-text-muted">Real-world results from districts using TerraVision.</p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className="p-6 rounded-xl bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
+                <p className="text-text-muted text-sm">"TerraVision helped us visualize a 30% increase in green cover across the pilot corridor — stakeholders could finally see the impact."</p>
+                <div className="mt-4 font-semibold text-text-main">— Dr. Meera Kapoor, Urban Design Lead</div>
+              </div>
+              <div className="p-6 rounded-xl bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
+                <p className="text-text-muted text-sm">"AI renders made community consultations productive and fast. We shortened approval cycles by months."</p>
+                <div className="mt-4 font-semibold text-text-main">— Ajay Singh, Municipal Planner</div>
+              </div>
+              <div className="p-6 rounded-xl bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
+                <p className="text-text-muted text-sm">"The impact dashboard gave us confidence to scale the program city-wide."</p>
+                <div className="mt-4 font-semibold text-text-main">— Lina Rodriguez, Sustainability Director</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="py-12 bg-primary/5 dark:bg-primary/10">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-4 bg-[var(--color-surface-light)] dark:bg-[var(--color-surface-dark)] border border-[var(--color-border-light)]">
+              <div>
+                <h3 className="text-xl font-bold text-text-main">Ready to plan sustainably at scale?</h3>
+                <p className="text-text-muted">Start a project, invite collaborators, and measure real impact.</p>
+              </div>
+              <div className="flex gap-3">
+                <Link to="/map" className="rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground">Get Started</Link>
+                <Link to="/signup" className="rounded-xl border border-[var(--color-border-light)] px-6 py-3 font-semibold">Request Demo</Link>
+              </div>
+            </div>
+          </div>
+        </section>
         {/* Features Section */}
         <section className="py-16 sm:py-24 bg-white dark:bg-surface-dark">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
