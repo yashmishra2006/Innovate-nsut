@@ -41,7 +41,7 @@ export const fetchDelhiAQIStations = async (): Promise<Station[]> => {
     console.log('📄 Fetching AQI XML data...');
     
     // Fetch the XML file
-    const response = await fetch('/data/rss_feed (1).xml');
+    const response = await fetch('/data/rss_feed.xml');
     if (!response.ok) {
       console.error('❌ Failed to fetch XML:', response.status);
       return [];
