@@ -28,7 +28,7 @@ const Navbar: React.FC = () => {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center">
           <img
-            src="components/terraVision_LOGO-removebg.png"
+            src="logo.png"
             alt="TerraVision"
             className="h-20 w-auto object-contain"
           />
