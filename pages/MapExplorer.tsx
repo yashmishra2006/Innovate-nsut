@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import { Layer } from '../types';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import L from 'leaflet';
+import { STREET_VIEW_LOCATIONS, getStreetViewLocationsByLayers, StreetViewLocation } from '../data/streetViewLocations';
 import { fetchDelhiAQIStations, getAQIColor, getAQILevel, Station } from '../services/xmlAqiService';
 
 // Mock Data
@@ -46,6 +47,7 @@ const layersData: Layer[] = [
 const MapExplorer: React.FC = () => {
   const [layers, setLayers] = useState<Layer[]>(layersData);
   const [selectedProject, setSelectedProject] = useState<boolean>(false);
+  const [selectedStreetView, setSelectedStreetView] = useState<StreetViewLocation | null>(null);
 
   // Analysis Mode State
   const [isAnalysisMode, setIsAnalysisMode] = useState(false);
@@ -55,6 +57,7 @@ const MapExplorer: React.FC = () => {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupsRef = useRef<{ [key: string]: L.LayerGroup }>({});
   const analysisLayerRef = useRef<L.LayerGroup | null>(null);
+  const streetViewLayerRef = useRef<L.LayerGroup | null>(null);
 
   const toggleLayer = (id: string) => {
     setLayers(prev => prev.map(l => l.id === id ? { ...l, active: !l.active } : l));
@@ -91,6 +94,9 @@ const MapExplorer: React.FC = () => {
 
         // Initialize Analysis Layer
         analysisLayerRef.current = L.layerGroup().addTo(map);
+        
+        // Initialize Street View Layer
+        streetViewLayerRef.current = L.layerGroup().addTo(map);
 
         // EV charging stations icon
         const evIcon = L.divIcon({
@@ -369,55 +375,6 @@ const MapExplorer: React.FC = () => {
 
   }, [layers]);
 
-  // Load AQI data from XML when AQI layer is toggled
-  useEffect(() => {
-    const aqiLayer = layers.find(l => l.id === 'aqi');
-    if (!aqiLayer?.active || !mapInstanceRef.current) return;
-
-    const loadAQIData = async () => {
-      console.log('📊 Loading Delhi AQI data from XML...');
-      
-      // Clear previous markers
-      if (layerGroupsRef.current.aqi) {
-        layerGroupsRef.current.aqi.clearLayers();
-      }
-
-      // Fetch Delhi AQI stations from XML
-      const stations = await fetchDelhiAQIStations();
-      
-      console.log(`✅ Got ${stations.length} Delhi AQI stations`);
-
-      // Add markers to map
-      stations.forEach((station: Station) => {
-        const color = getAQIColor(station.aqi);
-        
-        const icon = L.divIcon({
-          className: 'custom-div-icon',
-          html: `<div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white shadow-lg" style="background-color: ${color}; opacity: 0.9">
-            <span class="text-white text-xs font-bold">${station.aqi}</span>
-          </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
-        });
-
-        const popupContent = `
-          <div class="text-sm p-2 font-semibold">
-            <div><strong>${station.id}</strong></div>
-            <div class="text-xs mt-1">AQI: ${station.aqi} - ${station.level}</div>
-            ${station.primaryPollutant ? `<div class="text-xs">Primary: ${station.primaryPollutant}</div>` : ''}
-            <div class="text-xs text-gray-500">Updated: ${station.lastupdate}</div>
-          </div>
-        `;
-
-        L.marker([station.latitude, station.longitude], { icon })
-          .bindPopup(popupContent)
-          .addTo(layerGroupsRef.current.aqi);
-      });
-    };
-
-    loadAQIData();
-  }, [layers]);
-
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-200 font-display">
       <Navbar />
@@ -545,7 +502,7 @@ const MapExplorer: React.FC = () => {
 
         {/* 1. PROJECT DETAILS / STREET VIEW CARD */}
         <div
-            className={`absolute top-4 right-4 bottom-4 w-[480px] z-[500] flex flex-col bg-surface-light shadow-2xl rounded-2xl border border-gray-200 overflow-hidden transition-transform duration-300 ease-in-out ${selectedProject ? 'translate-x-0' : 'translate-x-[120%]'}`}
+            className={`absolute top-4 right-4 bottom-4 w-[480px] z-[500] flex flex-col bg-surface-light shadow-2xl rounded-2xl border border-gray-200 overflow-hidden transition-transform duration-300 ease-in-out ${selectedProject && !selectedStreetView ? 'translate-x-0' : 'translate-x-[120%]'}`}
         >
             <div className="relative h-64 w-full bg-slate-900 shrink-0">
                 <BeforeAfterSlider
@@ -589,9 +546,114 @@ const MapExplorer: React.FC = () => {
             </div>
         </div>
 
+        {/* STREET VIEW LOCATION DRAWER */}
+        <div
+            className={`absolute top-4 right-4 bottom-4 w-[480px] z-[500] flex flex-col bg-surface-light shadow-2xl rounded-2xl border border-gray-200 overflow-hidden transition-transform duration-300 ease-in-out ${selectedStreetView ? 'translate-x-0' : 'translate-x-[120%]'}`}
+        >
+            {selectedStreetView && (
+              <>
+                <div className="relative w-full shrink-0">
+                  <BeforeAfterSlider
+                      beforeImage={selectedStreetView.beforeImage}
+                      afterImage={selectedStreetView.afterImage}
+                      labelBefore="Before"
+                      labelAfter="After"
+                  />
+                  <button 
+                    onClick={() => setSelectedStreetView(null)} 
+                    className="absolute top-4 right-4 p-2 bg-black/50 text-white hover:bg-black/70 rounded-full backdrop-blur-sm transition-colors z-30"
+                  >
+                     <span className="material-symbols-outlined text-[20px]">close</span>
+                  </button>
+                  <div className="absolute bottom-4 left-4 z-30">
+                      <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg">Street View</span>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 py-6">
+                  <div className="flex flex-col gap-2 mb-6">
+                      <div className="flex items-center gap-2">
+                           <h1 className="text-slate-900 text-2xl font-bold leading-tight">{selectedStreetView.name}</h1>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-blue-500 text-[18px]">location_on</span>
+                          <p className="text-sm text-gray-500">
+                            {selectedStreetView.coords[0].toFixed(4)}, {selectedStreetView.coords[1].toFixed(4)}
+                          </p>
+                      </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
+                      <p className="text-sm text-blue-900 leading-relaxed">
+                        {selectedStreetView.description}
+                      </p>
+                  </div>
+
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">category</span> Transformation Category
+                    </h3>
+                    <div className="flex gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                        selectedStreetView.category === 'tree' ? 'bg-green-100 text-green-700' :
+                        selectedStreetView.category === 'solar' ? 'bg-yellow-100 text-yellow-700' :
+                        selectedStreetView.category === 'corridor' ? 'bg-primary/10 text-primary' :
+                        selectedStreetView.category === 'shade' ? 'bg-purple-100 text-purple-700' :
+                        'bg-blue-100 text-blue-700'
+                      }`}>
+                        {selectedStreetView.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">lightbulb</span> Key Features
+                    </h3>
+                    {selectedStreetView.category === 'tree' && (
+                      <>
+                        <HighlightRow icon="forest" title="Tree Canopy" desc="Added dense urban tree coverage for cooling and air quality." />
+                        <HighlightRow icon="park" title="Green Spaces" desc="Integrated pocket parks and vegetation zones." />
+                      </>
+                    )}
+                    {selectedStreetView.category === 'solar' && (
+                      <>
+                        <HighlightRow icon="solar_power" title="Solar Panels" desc="Rooftop and carport solar installations for clean energy." />
+                        <HighlightRow icon="bolt" title="Energy Storage" desc="Grid-tied battery systems for stable power supply." />
+                      </>
+                    )}
+                    {selectedStreetView.category === 'corridor' && (
+                      <>
+                        <HighlightRow icon="alt_route" title="Green Corridor" desc="Continuous vegetation pathway connecting urban areas." />
+                        <HighlightRow icon="pedal_bike" title="Bike Lanes" desc="Dedicated cycling infrastructure for sustainable transport." />
+                      </>
+                    )}
+                    {selectedStreetView.category === 'shade' && (
+                      <>
+                        <HighlightRow icon="beach_access" title="Shade Structures" desc="Modern canopy systems for pedestrian comfort." />
+                        <HighlightRow icon="cool_to_dry" title="Cool Surfaces" desc="Heat-reflective materials to reduce urban heat island effect." />
+                      </>
+                    )}
+                    {selectedStreetView.category === 'mixed' && (
+                      <>
+                        <HighlightRow icon="forest" title="Tree Coverage" desc="Comprehensive urban forestry integration." />
+                        <HighlightRow icon="solar_power" title="Solar Energy" desc="Renewable energy infrastructure deployment." />
+                        <HighlightRow icon="alt_route" title="Green Corridors" desc="Connected green spaces for biodiversity." />
+                      </>
+                    )}
+                  </div>
+
+                  <button className="w-full mt-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                      <span className="material-symbols-outlined">auto_awesome</span> Generate AI Proposal
+                  </button>
+                </div>
+              </>
+            )}
+        </div>
+
         {/* 2. REGION ANALYSIS DRAWER */}
         <div
-            className={`absolute top-4 right-4 bottom-4 w-[400px] z-[500] flex flex-col bg-surface-light shadow-2xl rounded-2xl border border-gray-200 overflow-hidden transition-transform duration-300 ease-in-out ${regionAnalysis ? 'translate-x-0' : 'translate-x-[120%]'}`}
+            className={`absolute top-4 right-4 bottom-4 w-[400px] z-[500] flex flex-col bg-surface-light shadow-2xl rounded-2xl border border-gray-200 overflow-hidden transition-transform duration-300 ease-in-out ${regionAnalysis && !selectedStreetView ? 'translate-x-0' : 'translate-x-[120%]'}`}
         >
              <div className="bg-blue-600 p-6 text-white shrink-0 relative overflow-hidden">
                  <div className="absolute top-0 right-0 p-10 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
