@@ -375,6 +375,114 @@ const MapExplorer: React.FC = () => {
 
   }, [layers]);
 
+  // Load AQI data from XML when AQI layer is toggled
+  useEffect(() => {
+    const aqiLayer = layers.find(l => l.id === 'aqi');
+    if (!aqiLayer?.active || !mapInstanceRef.current) return;
+
+    const loadAQIData = async () => {
+      console.log('📊 Loading Delhi AQI data from XML...');
+      
+      // Clear previous markers
+      if (layerGroupsRef.current.aqi) {
+        layerGroupsRef.current.aqi.clearLayers();
+      }
+
+      // Fetch Delhi AQI stations from XML
+      const stations = await fetchDelhiAQIStations();
+      
+      console.log(`✅ Got ${stations.length} Delhi AQI stations`);
+
+      // Add markers to map
+      stations.forEach((station: Station) => {
+        const color = getAQIColor(station.aqi);
+        
+        const icon = L.divIcon({
+          className: 'custom-div-icon',
+          html: `<div class="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white shadow-lg" style="background-color: ${color}; opacity: 0.9">
+            <span class="text-white text-xs font-bold">${station.aqi}</span>
+          </div>`,
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+        });
+
+        const popupContent = `
+          <div class="text-sm p-2 font-semibold">
+            <div><strong>${station.id}</strong></div>
+            <div class="text-xs mt-1">AQI: ${station.aqi} - ${station.level}</div>
+            ${station.primaryPollutant ? `<div class="text-xs">Primary: ${station.primaryPollutant}</div>` : ''}
+            <div class="text-xs text-gray-500">Updated: ${station.lastupdate}</div>
+          </div>
+        `;
+
+        L.marker([station.latitude, station.longitude], { icon })
+          .bindPopup(popupContent)
+          .addTo(layerGroupsRef.current.aqi);
+      });
+    };
+
+    loadAQIData();
+  }, [layers]);
+
+  // Update Street View Locations based on active layers
+  useEffect(() => {
+    if (!streetViewLayerRef.current) return;
+
+    // Clear existing markers
+    streetViewLayerRef.current.clearLayers();
+
+    // Get active layer IDs
+    const activeLayers = layers.filter(l => l.active).map(l => l.id);
+    
+    // Get locations based on active layers
+    const locations = getStreetViewLocationsByLayers(activeLayers);
+
+    // Add blue circular overlays for each location
+    locations.forEach(location => {
+      // Create a blue circle overlay
+      const circle = L.circle(location.coords, {
+        radius: 150,
+        color: '#3b82f6',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.3,
+        weight: 2,
+        className: 'street-view-location cursor-pointer'
+      });
+
+      // Create a center icon
+      const icon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div class="flex items-center justify-center w-10 h-10 bg-blue-500 text-white rounded-full border-3 border-white shadow-lg cursor-pointer hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-xl">visibility</span>
+              </div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+
+      const marker = L.marker(location.coords, { icon });
+
+      // Add click handlers
+      const handleClick = () => {
+        setSelectedStreetView(location);
+        setSelectedProject(false);
+        setRegionAnalysis(null);
+      };
+
+      circle.on('click', handleClick);
+      marker.on('click', handleClick);
+
+      // Add tooltip
+      marker.bindTooltip(location.name, {
+        direction: 'top',
+        offset: [0, -10],
+        className: 'custom-tooltip'
+      });
+
+      circle.addTo(streetViewLayerRef.current!);
+      marker.addTo(streetViewLayerRef.current!);
+    });
+  }, [layers]);
+
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-200 font-display">
       <Navbar />
